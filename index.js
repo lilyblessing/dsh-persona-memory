@@ -165,12 +165,16 @@ function apply(ctx, config) {
       store,
       standing,
       vector,
+      getProjectStore,
       cfg,
       profilePatch: profilePatchPath(profileName),
       log: (s) => ctx.logger.info(s),
     });
+    // 路由 disposer 必须接线到 ctx.effect：host-webserver 的 register 不自动
+    // 绑定生命周期（返回 disposer、同 path 重复注册抛错）。此前 disposer 被
+    // 丢弃 → 插件重载/卸载会遗留孤儿路由。修复见检查报告 §3/§4.2。
     for (const route of routes) {
-      ctx.webServer.register(route);
+      ctx.effect(() => ctx.webServer.register(route));
     }
 
     // 自动保护：定时备份（autoBackupMin 分钟一次，只保留最新一份）+ Pi
