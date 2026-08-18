@@ -6,6 +6,17 @@
 
 ---
 
+## 本 fork 相对上游的改动（Changes vs upstream）
+
+个人 fork（[lilyblessing/dsh-persona-memory](https://github.com/lilyblessing/dsh-persona-memory)）
+在 [Quophic/dsh-persona-memory](https://github.com/Quophic/dsh-persona-memory) 0.1.19 基础上推出的
+**v0.1.20** 稳定性 / 安全修复（完整记录见 [CHANGELOG](./CHANGELOG.md)）：
+
+- **路由生命周期修复**：`webServer` 路由注册接线到 `ctx.effect`，插件重载 / 卸载不再遗留孤儿路由。
+- **WebUI 写入防并发 / 防覆盖**：管理页增删改统一走 `memory-store` 单文件锁 + 外部指纹（sha256）预检，
+  不再与 `memory` 工具并发互覆盖，也不覆盖 Pi / 手动编辑。
+- **项目记忆过锁 + 容量检查**：项目编辑经项目 store 并受 `projectCharLimit` 约束（超限拒绝写入）。
+
 ## 功能清单
 
 ### A. 存储与共享
