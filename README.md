@@ -10,7 +10,20 @@
 
 个人 fork（[lilyblessing/dsh-persona-memory](https://github.com/lilyblessing/dsh-persona-memory)）
 在 [Quophic/dsh-persona-memory](https://github.com/Quophic/dsh-persona-memory) 0.1.19 基础上推出的
-**v0.1.20** 稳定性 / 安全修复（完整记录见 [CHANGELOG](./CHANGELOG.md)）：
+**v0.1.20 / v0.1.21** 稳定性 / 安全修复（完整记录见 [CHANGELOG](./CHANGELOG.md)）：
+
+**v0.1.21**
+
+- **管理页配置回显修复**：`/api/persona-memory/status` 的 `config` 此前只把 6 个派生键盖在默认值上，
+  **已加载的配置从未合并**——设置页「插件配置卡」对**除这 6 键外的每个字段**都显示默认值
+  （实测 `memoryCharLimit` 显示 5000，运行时实际按 8000 执行），且保存时会把这份错误回显
+  **写回 profile patch**，等于把 5000 固化成真值。
+  现 `currentConfig(cfg)` 改为**按 `CFG_SCHEMA` 驱动的模块级导出纯函数**：每个字段取
+  `cfg[key] ?? CFG_DEFAULTS[key] ?? ''`，保证除密钥外**每个 schema 键都有具体值**
+  （`vectorIndexDir`/`embeddingBaseUrl` 此前因不在两张表里而**根本不渲染**，一并修复），
+  `embeddingApiKey` 显式跳过、永不外发。
+
+**v0.1.20**
 
 - **路由生命周期修复**：`webServer` 路由注册接线到 `ctx.effect`，插件重载 / 卸载不再遗留孤儿路由。
 - **WebUI 写入防并发 / 防覆盖**：管理页增删改统一走 `memory-store` 单文件锁 + 外部指纹（sha256）预检，
@@ -63,7 +76,7 @@
 | 跨进程写保护 | 写前 sha256 指纹预检（对照 Pi 的 ExternalMemoryWriteConflict）：外部（Pi/手动编辑）改过就不覆盖，重试一次后返回 `conflict` 提示 |
 | 与 Pi 字节兼容 | 对齐 pi-hermes-memory v0.9.4 实测：无尾随换行、charCount 含分隔符、USER 上限 5000、超限拒绝写入、failure 去重按 (text, project)、注入 `<memory-context>` 围栏 |
 | 优雅降级 | FTS5 不可用回退子串搜索；SQLite 动态 import，插件绝不硬依赖 |
-| 111 项冒烟测试 | 用真实 hermes 文件副本验证格式兼容、解析、读写、扫描、合并、项目、纠正、FTS、向量索引、溢出拒绝、字节格式、并发、围栏全链路 |
+| 124 项冒烟测试 | 用真实 hermes 文件副本验证格式兼容、解析、读写、扫描、合并、项目、纠正、FTS、向量索引、溢出拒绝、字节格式、并发、围栏、配置回显全链路 |
 ---
 
 ## 借鉴来源（明确声明）

@@ -7,6 +7,7 @@ import { createMemoryStore, ENTRY_DELIMITER } from '../lib/memory-store.js';
 import { scanContent } from '../lib/secret-scanner.js';
 import { withUsage } from '../lib/memory-tool.js';
 import { parseFacts } from '../lib/learning.js';
+import { CFG_DEFAULTS, CFG_SCHEMA, currentConfig } from '../lib/admin.js';
 
 const srcDir = path.join(os.homedir(), '.pi', 'agent', 'pi-hermes-memory');
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-memory-smoke-'));
@@ -442,6 +443,45 @@ check('memory_search tool uses hybrid engine', hybridResult.engine === 'hybrid' 
 registerMemorySearchTool(searchCtx, searchStore, { searchMaxResults: 10 }, () => searchStore, mockFts, null);
 const ftsOnly = await registeredSearchTool.execute({ query: 'rust' }, undefined);
 check('memory_search tool falls back to fts engine', ftsOnly.engine === 'fts' && ftsOnly.matches[0]?.text.includes('borrow'), JSON.stringify(ftsOnly));
+
+// --------------- currentConfig: the admin page must echo the RESOLVED cfg ---
+// Regression (0.1.21). currentConfig() used to be
+//   Object.assign({}, CFG_DEFAULTS, { <6 derived keys> })
+// — the resolved `cfg` was never applied, so the settings page rendered
+// CFG_DEFAULTS' value for every field outside that derived block. Measured on
+// the live dsh 0.1.5-rc.2 install: the page reported memoryCharLimit 5000 while
+// the runtime enforced 8000 (proved by stores[].usagePct), i.e. the whole
+// config surface was misreported.
+{
+  const resolved = {
+    ...CFG_DEFAULTS,
+    memoryCharLimit: 8000,
+    userCharLimit: 8000,
+    autoBackupMin: 15,
+    embeddingRemoteHost: 'https://hf-mirror.com',
+  };
+  const echo = currentConfig(resolved);
+  check('currentConfig echoes resolved memoryCharLimit', echo.memoryCharLimit === 8000, String(echo.memoryCharLimit));
+  check('currentConfig echoes resolved userCharLimit', echo.userCharLimit === 8000, String(echo.userCharLimit));
+  check('currentConfig echoes resolved autoBackupMin (not in derived block)', echo.autoBackupMin === 15, String(echo.autoBackupMin));
+  check('currentConfig echoes resolved embeddingRemoteHost', echo.embeddingRemoteHost === 'https://hf-mirror.com', echo.embeddingRemoteHost);
+  check('currentConfig still falls back to defaults for unset keys', echo.sectionOrder === 55, String(echo.sectionOrder));
+  // The client skips any key absent from the payload (`!(f.key in s.config)` in
+  // client/client.js:187), so *every* schema field except the secret must be
+  // present — a skipped field never renders at all, and a field echoed as a
+  // default would be written back into the profile patch on save.
+  const missing = CFG_SCHEMA.filter((f) => f.key !== 'embeddingApiKey' && !(f.key in echo)).map((f) => f.key);
+  check('currentConfig covers every schema field except the secret', missing.length === 0, missing.join(','));
+  // Regression: vectorIndexDir + embeddingBaseUrl are in CFG_SCHEMA but in neither
+  // CFG_DEFAULTS nor the old derived block, so they never rendered in the card.
+  check('currentConfig echoes vectorIndexDir from cfg', currentConfig({ ...resolved, vectorIndexDir: 'D:/idx' }).vectorIndexDir === 'D:/idx');
+  check('currentConfig renders embeddingBaseUrl as a present key', 'embeddingBaseUrl' in echo);
+  // The derived block used to contradict the defaults (undefined -> true / 'local'),
+  // which cannot happen with resolved-cfg-first precedence.
+  check('currentConfig keeps vectorEnabled false when cfg says so', currentConfig({ ...resolved, vectorEnabled: false }).vectorEnabled === false);
+  // Guard: the resolved cfg can carry a secret; it must never reach the browser.
+  check('currentConfig never echoes embeddingApiKey', !('embeddingApiKey' in currentConfig({ ...resolved, embeddingApiKey: 'sk-should-not-leak' })));
+}
 
 // cleanup
 fs.rmSync(testDir, { recursive: true, force: true });
