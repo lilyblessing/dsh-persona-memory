@@ -16,7 +16,8 @@
   后果二（**更严重**）：配置卡保存时把整个表单回贴（`client/client.js:255` `api('/configSave', cfgForm)`），
   因此错误的回显会被**写回 profile patch**，等于把 5000 固化成真值。
   后果三：`vectorIndexDir`、`embeddingBaseUrl` 既不在 `CFG_DEFAULTS` 也不在派生块中，
-  **自始至终没有渲染过**。
+  回显里没有它们的值，而渲染循环（`client/client.js:518-535`）遍历整个 `CFG_SCHEMA`、
+  取值 `cfgForm[key]`，于是这两个字段**长期显示为空框**（控件在、值是空的）。
   修复：`currentConfig` 从 `makeAdminRoutes` 闭包提升为**模块级导出纯函数** `currentConfig(cfg)`，
   改为 **`CFG_SCHEMA` 驱动**：对除 `embeddingApiKey` 外的每个 schema 键取
   `cfg[key] !== undefined ? cfg[key] : CFG_DEFAULTS[key]`，仍为 undefined 则回落 `''`。

@@ -20,7 +20,7 @@
   **写回 profile patch**，等于把 5000 固化成真值。
   现 `currentConfig(cfg)` 改为**按 `CFG_SCHEMA` 驱动的模块级导出纯函数**：每个字段取
   `cfg[key] ?? CFG_DEFAULTS[key] ?? ''`，保证除密钥外**每个 schema 键都有具体值**
-  （`vectorIndexDir`/`embeddingBaseUrl` 此前因不在两张表里而**根本不渲染**，一并修复），
+  （`vectorIndexDir`/`embeddingBaseUrl` 此前不在两张表里，渲染循环取不到值、**长期显示为空框**，一并修复），
   `embeddingApiKey` 显式跳过、永不外发。
 
 **v0.1.20**
